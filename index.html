@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>반응속도 테스트</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #222;
+      font-family: Arial, sans-serif;
+      color: white;
+    }
+
+    #stats {
+      position: fixed;
+      top: 15px;
+      right: 20px;
+      font-size: 14px;
+      text-align: right;
+      line-height: 1.5;
+    }
+
+    #shareBtn {
+      margin-top: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: none;
+    }
+
+    #box {
+      width: 320px;
+      height: 320px;
+      background-color: green;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+      border-radius: 14px;
+      white-space: pre-line;
+      transition: transform 0.1s;
+    }
+
+    .flash {
+      animation: flash 0.3s ease-in-out 3;
+    }
+
+    @keyframes flash {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+<div id="stats">
+  시도 횟수: <span id="count">0</span><br>
+  평균: <span id="average">-</span><br>
+  최고(빠름): <span id="best">-</span><br>
+  최저(느림): <span id="worst">-</span><br>
+  <span id="avgMessage" style="font-size:12px; color:#ccc;"></span><br>
+  <span id="grade" style="font-size:13px; font-weight:bold;"></span><br>
+  <button id="shareBtn">📸 기록 공유</button>
+</div>
+
+<div id="box">클릭하면 시작</div>
+
+<!-- html2canvas CDN -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+  const box = document.getElementById("box");
+  const countEl = document.getElementById("count");
+  const avgEl = document.getElementById("average");
+  const bestEl = document.getElementById("best");
+  const worstEl = document.getElementById("worst");
+  const avgMsgEl = document.getElementById("avgMessage");
+  const gradeEl = document.getElementById("grade");
+  const shareBtn = document.getElementById("shareBtn");
+
+  let startTime = 0;
+  let timeoutId = null;
+  let waiting = false;
+
+  let tryCount = 0;
+  let totalReaction = 0;
+  let bestRecord = null;
+  let worstRecord = null;
+
+  function getMessage(ms) {
+    if (ms <= 50) return "혹시 인간 맞으세요? AI 의심됩니다.";
+    if (ms <= 100) return "신경이 빛의 속도로 전달됩니다. 신급 반응.";
+    if (ms <= 150) return "프로게이머 입단 테스트 통과.";
+    if (ms <= 200) return "골키퍼 해도 공이 먼저 포기하겠어요.";
+    if (ms <= 250) return "정확히 평균. 교과서적인 반응속도.";
+    if (ms <= 300) return "살짝 녹슬었습니다. 기름칠 하고오세요.";
+    if (ms <= 350) return "눈은 봤는데 손이 회의 중입니다.";
+    if (ms <= 400) return "신경 전달이 지각했습니다. 사유서 제출 요망.";
+    if (ms <= 450) return "이정도면 차에 치어도 다음날 병원가시겠어요.";
+    if (ms <= 500) return "혹시 클릭 전에 인생을 한 번 돌아보셨나요?";
+    return "이건 눌러야되는지 아닌지 의논하고 누른수준입니다.";
+  }
+
+  function getGrade(avg) {
+    if (avg <= 120) return "오늘의 뇌 컨디션: S";
+    if (avg <= 160) return "오늘의 뇌 컨디션: A";
+    if (avg <= 200) return "오늘의 뇌 컨디션: B";
+    if (avg <= 250) return "오늘의 뇌 컨디션: C";
+    if (avg <= 320) return "오늘의 뇌 컨디션: D";
+    return "오늘의 뇌 컨디션: F";
+  }
+
+  box.addEventListener("click", () => {
+    if (!waiting) {
+      box.style.backgroundColor = "green";
+      box.textContent = "기다리세요...";
+      waiting = true;
+
+      const randomDelay = Math.random() * 7000 + 3000;
+
+      timeoutId = setTimeout(() => {
+        box.style.backgroundColor = "red";
+        box.textContent = "지금 클릭!";
+        startTime = performance.now();
+      }, randomDelay);
+
+    } else {
+      if (box.style.backgroundColor !== "red") {
+        clearTimeout(timeoutId);
+        box.textContent = "너무 빨랐어요!\n신경이 너무 앞질렀습니다";
+        waiting = false;
+        return;
+      }
+
+      const reactionTime = performance.now() - startTime;
+      const message = getMessage(reactionTime);
+
+      tryCount++;
+      totalReaction += reactionTime;
+      const average = totalReaction / tryCount;
+
+      // 최고/최저 기록 관리
+      bestRecord = bestRecord === null ? reactionTime : Math.min(bestRecord, reactionTime);
+      worstRecord = worstRecord === null ? reactionTime : Math.max(worstRecord, reactionTime);
+
+      countEl.textContent = tryCount;
+      avgEl.textContent = `${average.toFixed(0)} ms`;
+      bestEl.textContent = `${bestRecord.toFixed(0)} ms`;
+      worstEl.textContent = `${worstRecord.toFixed(0)} ms`;
+      avgMsgEl.textContent = getMessage(average);
+      gradeEl.textContent = getGrade(average);
+
+      let bestText = "";
+      if (reactionTime === bestRecord) {
+        bestText = "\n\n🏆 최고 기록 갱신!";
+        box.classList.add("flash");
+        setTimeout(() => box.classList.remove("flash"), 500);
+      }
+
+      box.textContent = `반응속도: ${reactionTime.toFixed(0)} ms\n${message}${bestText}\n\n다시 클릭해서 재도전`;
+      box.style.backgroundColor = "green";
+      waiting = false;
+    }
+  });
+
+  // 스크린샷 공유
+  shareBtn.addEventListener("click", () => {
+    html2canvas(document.body).then(canvas => {
+      const link = document.createElement('a');
+      link.download = 'reaction-result.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+  });
+</script>
+
+</body>
+</html>
